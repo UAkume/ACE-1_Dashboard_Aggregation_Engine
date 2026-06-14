@@ -13,6 +13,7 @@ export interface FilterDef {
     | 'dateMode'
     | 'dateinRange'
     | 'dateNotInRange'
+    | 'dateDiff'
     | 'greaterThan'
     | 'lessThan'
     | 'greaterThanOrEqual'
@@ -20,6 +21,7 @@ export interface FilterDef {
     | 'isNotNull'
     | 'isNull';
   value?: unknown;
+  ref?: string;
   caseSensitive?: boolean;
 }
 
@@ -124,6 +126,23 @@ export class FilterEngine {
           ? helper.getPEPFARFiscalYearRange()
           : helper.getRange();
         return !d.isBetween(range.start, range.end, 'day', '[]');
+      }
+
+      case 'dateDiff': {
+        const helper = this.getDateHelper(filter.column);
+        const d1 = helper.parse(raw);
+        const d2 = filter.ref ? helper.parse(row[filter.ref]) : null;
+        if (!d1 || !d2) return false;
+        const diffDays = Math.abs(d1.diff(d2, 'day'));
+        const match = String(filter.value ?? '').trim().match(/^([<>]=?)\s*(\d+)$/);
+        if (!match) return false;
+        const [, op, numStr] = match;
+        const n = parseInt(numStr, 10);
+        if (op === '<')  return diffDays < n;
+        if (op === '>')  return diffDays > n;
+        if (op === '<=') return diffDays <= n;
+        if (op === '>=') return diffDays >= n;
+        return false;
       }
 
       case 'greaterThan':
